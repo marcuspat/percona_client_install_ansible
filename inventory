@@ -1,0 +1,12 @@
+[pmm_agent_install]
+host1
+host2
+host3
+host4
+host5
+host[6:10]
+
+
+[regular]
+host[15:20]
+

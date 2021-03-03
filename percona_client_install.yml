@@ -1,0 +1,77 @@
+---
+- name: Installs percona client
+  hosts: pmm_agent_install
+  remote_user: ansible
+  become: true
+  vars:
+    pmm_server_ip: localhost
+    pmm_user_id: pmm_user
+    pmm_user_password: !vault |
+          $ANSIBLE_VAULT;1.1;AES256
+          62383938343061613332653337666139396137306634343263376234666237643936623438646631
+          3031613365373262616638386235306338643036363835370a643534386435386130303738336633
+          33393638363731336234316433376166383264666338656634383961383662306337376235633164
+          3466653262613738660a353136333032303835633762376532336536626635346666656539346337
+          61386561353036353362373030353736613335616535353461373834386537653738
+
+ 
+  tasks:
+
+        - name: remove any pmm-client already installed
+          yum:
+            name: pmm-client
+            state: absent
+          tags: install
+
+        - name: install PMM Repo
+          yum: 
+            name: https://repo.percona.com/yum/percona-release-latest.noarch.rpm
+            state: present
+          tags: install
+        
+        - name: enable percona repository
+          shell: "percona-release enable ps-80 release"
+          tags: install
+
+        - name: Installing PMM Client
+          yum:
+            name: pmm-client
+            state: latest
+          tags: install
+        
+        - name: Configuring PMM Client
+          shell: pmm-admin config --server "{{ pmm_server_ip }}" --server-insecure-ssl --server-user "{{ pmm_user_id }}" --server-password "{{ pmm_user_password }}"
+          tags: install
+
+        - name: Adding Linux Metrics
+          shell: pmm-admin add linux:metrics
+          tags: linux
+
+        - name: MySQL Metrics
+          shell: pmm-admin add mysql:metrics
+          tags: mysql
+        
+        - name: open port 42000 in iptables
+          shell: iptables -I INPUT 5 -p tcp -s "{{ pmm_server_ip }}" --dport 42000 -j ACCEPT && iptables-save
+          tags: linux
+
+        - name: open port 42002 in iptables
+          shell: iptables -I INPUT 5 -p tcp -s "{{ pmm_server_ip }}" --dport 42002 -j ACCEPT && iptables-save
+          tags: mysql
+
+        - name: Start pmm-client
+          systemd:
+            name: pmm-linux-metrics-42000.service 
+            state: started
+          tags: linux
+
+        - name: Start pmm-client
+          systemd:
+            name: pmm-linux-metrics-42002.service 
+            state: started
+          tags: mysql
+
+
+
+
+        
